@@ -1,4 +1,9 @@
-from flask import Blueprint
+from flask import Blueprint, jsonify, request
+from ..models import db
+from app.models.response import Response
+from app.models.questions import Statistic, Question
+from pydantic import ValidationError
+from ..schemas.response import StaticResponse
 
 response_bp = Blueprint('response', __name__, url_prefix='/responses')
 
@@ -8,7 +13,17 @@ def get_responses():
     Returns statistic by responses
     :return:
     """
-    return "Статистика всех ответов"
+    statistics = Statistic.query.all()
+    results = []
+    for item in statistics:
+        try:
+            res = StaticResponse.model_validate(item)
+            res = res.model_dump()
+            results.append(res)
+        except ValidationError as e:
+            continue
+
+    return jsonify(results), 200
 
 
 @response_bp.route('/', methods=['POST'])
@@ -17,4 +32,30 @@ def create_response():
     Adds a new response
     :return:
     """
-    return "Ответ добавлен"
+    data = request.get_json()
+    if not data or 'question_id' not in data or 'is_agree' not in data:
+        return jsonify({'message': "Некорректные данные"}), 400
+
+    question = Question.query.get(data['question_id'])
+    if not question:
+        return jsonify({'message': "Вопрос не найден"}), 404
+
+    response = Response(
+        question_id=question.id,
+        is_agree=data['is_agree']
+    )
+    db.session.add(response)
+
+    # Обновление статистики
+    statistic = Statistic.query.filter_by(question_id=question.id).first()
+    if not statistic:
+        statistic = Statistic(question_id=question.id, agree_count=0, disagree_count=0)
+        db.session.add(statistic)
+    if data['is_agree']:
+        statistic.agree_count += 1
+    else:
+        statistic.disagree_count += 1
+
+    db.session.commit()
+
+    return jsonify({'message': f"Ответ на вопрос {question.id} добавлен"}), 201

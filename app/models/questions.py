@@ -11,7 +11,7 @@ from . import db
 class Category(db.Model):
     __tablename__ = 'categories'
     id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(100), nullable=False, default='')
+    name = db.Column(db.String(100), nullable=False, unique=True)
     questions = db.relationship('Question', backref='category', lazy='dynamic')
 
     def __repr__(self):
@@ -20,12 +20,13 @@ class Category(db.Model):
     def __str__(self):
         return self.name
 
+
 class Question(db.Model):
     __tablename__ = 'questions'
     id = db.Column(db.Integer, primary_key=True)
-    question = db.Column(db.Text)
-    responses = db.relationship('Response', backref='question', lazy='dynamic')
+    question = db.Column(db.Text, nullable=False)
     category_id = db.Column(db.Integer, db.ForeignKey('categories.id'))
+    responses = db.relationship('Response', backref='question', lazy='dynamic')
 
     def __repr__(self):
         return f'Question: {self.id=},{self.question=}'
@@ -42,9 +43,11 @@ class Statistic(db.Model):
     disagree_count = db.Column(db.Integer, nullable=False, default=0)
 
     def __repr__(self):
-        return f'Statistic: {self.id=},{self.agree_count=},{self.disagree_count=}'
+        return (f'Statistic: question_id={self.question_id}, '
+                f'agree_count={self.agree_count}, disagree_count={self.disagree_count}')
 
     def __str__(self):
         return f'{self.question_id} {self.agree_count} {self.disagree_count}'
+
 
 
